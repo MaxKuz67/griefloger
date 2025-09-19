@@ -1,6 +1,7 @@
 package com.daqem.grieflogger.model;
 
 import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.EncoderException;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -77,14 +78,21 @@ public class SimpleItemStack {
     }
 
     public byte @Nullable [] getTagBytes(Level level) {
-        if (tag == null) {
+        // если патча нет — как и раньше, ничего не пишем в БД
+        if (tag == null  || tag.isEmpty()) {
             return null;
         }
-        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
-        DataComponentPatch.STREAM_CODEC.encode(buf, tag);
-        byte[] temp = new byte[buf.readableBytes()];
-        buf.readBytes(temp);
-        return temp;
+        try {
+            RegistryFriendlyByteBuf buf =
+                    new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+            DataComponentPatch.STREAM_CODEC.encode(buf, tag); // здесь и падало
+            byte[] temp = new byte[buf.readableBytes()];
+            buf.readBytes(temp);
+            return temp;
+        } catch (EncoderException | IllegalArgumentException e) {
+            // внутри патча встретился пустой ItemStack (или другой невалидный компонент) — пропускаем
+            return null; // возвращаем null, чтобы логика insert в БД не менялась
+        }
     }
 
     public ItemStack toItemStack() {

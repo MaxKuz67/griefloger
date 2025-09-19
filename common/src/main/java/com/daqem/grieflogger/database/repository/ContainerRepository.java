@@ -195,29 +195,23 @@ public class ContainerRepository extends Repository {
         }
     }
 
-    public void insertMap(long time, String userUuid, Level level, int x, int y, int z, Map<ItemAction, List<SimpleItemStack>> itemsMap) {
-        String insertMaterialQuery = """
-                INSERT OR IGNORE INTO materials(name)
-                VALUES(?);
-                """;
+    public void insertMap(long time, String userUuid, Level level, int x, int y, int z,
+                          Map<ItemAction, List<SimpleItemStack>> itemsMap) {
 
-        if (isMysql()) {
-            insertMaterialQuery = """
-                    INSERT IGNORE INTO materials(name)
-                    VALUES(?);
-                    """;
-        }
+        String insertMaterialQuery = isMysql()
+                ? "INSERT IGNORE INTO materials(name) VALUES(?);"
+                : "INSERT OR IGNORE INTO materials(name) VALUES(?);";
 
         String insertItemQuery = """
-                INSERT INTO containers(time, user, level, x, y, z, type, data, amount, action)
-                VALUES(?, (
-                    SELECT id FROM users WHERE uuid = ?
-                ), (
-                    SELECT id FROM levels WHERE name = ?
-                ), ?, ?, ?, (
-                    SELECT id FROM materials WHERE name = ?
-                ), ?, ?, ?);
-                """;
+        INSERT INTO containers(time, user, level, x, y, z, type, data, amount, action)
+        VALUES(?, (
+            SELECT id FROM users  WHERE uuid = ?
+        ), (
+            SELECT id FROM levels WHERE name = ?
+        ), ?, ?, ?, (
+            SELECT id FROM materials WHERE name = ?
+        ), ?, ?, ?);
+        """;
 
         try {
             PreparedStatement itemStatement = database.prepareStatement(insertItemQuery);
@@ -225,26 +219,46 @@ public class ContainerRepository extends Repository {
 
             for (Map.Entry<ItemAction, List<SimpleItemStack>> entry : itemsMap.entrySet()) {
                 for (SimpleItemStack item : entry.getValue()) {
-                    if (item.isEmpty()) {
-                        continue;
-                    }
-                    ResourceLocation itemLocation = item.getItem().arch$registryName();
-                    if (itemLocation != null) {
-                        materialStatement.setString(1, itemLocation.toString().replace("minecraft:", ""));
-                        materialStatement.addBatch();
 
-                        itemStatement.setLong(1, time);
-                        itemStatement.setString(2, userUuid);
-                        itemStatement.setString(3, level.dimension().location().toString());
-                        itemStatement.setInt(4, x);
-                        itemStatement.setInt(5, y);
-                        itemStatement.setInt(6, z);
-                        itemStatement.setString(7, itemLocation.toString().replace("minecraft:", ""));
-                        itemStatement.setBytes(8, item.getTagBytes(level));
-                        itemStatement.setInt(9, item.getCount());
-                        itemStatement.setInt(10, entry.getKey().getId());
-                        itemStatement.addBatch();
+                    // ⬇️ КЛЮЧЕВОЕ: пропускаем пустые/битые предметы сразу
+                    if (item == null || item.isEmpty() || item.getItem() == null) continue;
+
+                    ResourceLocation itemLocation = item.getItem().arch$registryName();
+                    if (itemLocation == null) continue;
+
+                    String material = itemLocation.toString().replace("minecraft:", "");
+
+                    materialStatement.setString(1, material);
+                    materialStatement.addBatch();
+
+                    // получить байты тэга (у тебя getTagBytes(level) уже “graceful-fail”)
+                    byte[] tagBytes = null;
+                    try {
+                        tagBytes = item.getTagBytes(level);
+                    } catch (Exception ignored) {
+                        // на всякий пожарный — не даём упасть треду тика
+                        tagBytes = null;
                     }
+
+                    itemStatement.setLong(1, time);
+                    itemStatement.setString(2, userUuid);
+                    itemStatement.setString(3, level.dimension().location().toString());
+                    itemStatement.setInt(4, x);
+                    itemStatement.setInt(5, y);
+                    itemStatement.setInt(6, z);
+                    itemStatement.setString(7, material);
+
+                    // ⬇️ если нет данных — пишем NULL (или пустой массив, если колонка NOT NULL)
+                    if (tagBytes == null || tagBytes.length == 0) {
+                        itemStatement.setNull(8, Types.BLOB);   // если data NULLABLE
+                        // itemStatement.setBytes(8, new byte[0]); // <-- если data NOT NULL
+                    } else {
+                        itemStatement.setBytes(8, tagBytes);
+                    }
+
+                    itemStatement.setInt(9, item.getCount());
+                    itemStatement.setInt(10, entry.getKey().getId());
+                    itemStatement.addBatch();
                 }
             }
             database.batchQueue.add(materialStatement);
