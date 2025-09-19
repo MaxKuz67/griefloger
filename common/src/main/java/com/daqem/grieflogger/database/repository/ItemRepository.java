@@ -6,7 +6,7 @@ import com.daqem.grieflogger.database.Database;
 import com.daqem.grieflogger.model.SimpleItemStack;
 import com.daqem.grieflogger.model.action.ItemAction;
 import com.daqem.grieflogger.model.history.ItemHistory;
-import io.netty.buffer.ByteBuf;
+import com.mojang.serialization.DataResult;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -258,10 +258,15 @@ public class ItemRepository extends Repository {
             List<ItemHistory> itemHistory = new ArrayList<>();
             ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
+
+                DataComponentPatch patch = DataComponentPatch.EMPTY;
+
                 byte[] bytes = resultSet.getBytes(8);
-                ByteBuf buf1 = bytes != null ? Unpooled.wrappedBuffer(bytes) : Unpooled.EMPTY_BUFFER;
-                RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(buf1, level.registryAccess());
-                DataComponentPatch patch = DataComponentPatch.STREAM_CODEC.decode(buf);
+                if (bytes != null) {
+                    RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(bytes), level.registryAccess());
+                    patch = DataComponentPatch.STREAM_CODEC.decode(buf);
+                }
+
                 itemHistory.add(new ItemHistory(
                         resultSet.getLong(1),
                         resultSet.getString(2),

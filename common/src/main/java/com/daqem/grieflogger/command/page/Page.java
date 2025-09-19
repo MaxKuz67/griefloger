@@ -3,10 +3,12 @@ package com.daqem.grieflogger.command.page;
 import com.daqem.grieflogger.GriefLogger;
 import com.daqem.grieflogger.model.history.IHistory;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -85,8 +87,19 @@ public class Page {
     }
 
     public void sendToPlayer(ServerPlayer serverPlayer) {
-        getHistory().forEach(serverPlayer::sendSystemMessage);
+        @SuppressWarnings("resource")
+        ServerLevel serverLevel = serverPlayer.serverLevel();
+        HolderLookup.Provider provider = serverLevel.registryAccess();
+        getHistory().forEach(component -> {
+            try {
+                Component.Serializer.toJson(component, provider);
+                serverPlayer.sendSystemMessage(component);
+            } catch (Exception e) {
+                serverPlayer.sendSystemMessage(Component.literal("Не удалось получить данные"));
+            }
+        });
     }
+
 
     public static List<Page> convertToPages(List<IHistory> history, boolean singleLocation) {
         List<Page> pages = new ArrayList<>();
