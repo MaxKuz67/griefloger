@@ -258,7 +258,8 @@ public class ItemRepository extends Repository {
             List<ItemHistory> itemHistory = new ArrayList<>();
             ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
-                ByteBuf buf1 = Unpooled.wrappedBuffer(resultSet.getBytes(8));
+                byte[] bytes = resultSet.getBytes(8);
+                ByteBuf buf1 = bytes != null ? Unpooled.wrappedBuffer(bytes) : Unpooled.EMPTY_BUFFER;
                 RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(buf1, level.registryAccess());
                 DataComponentPatch patch = DataComponentPatch.STREAM_CODEC.decode(buf);
                 itemHistory.add(new ItemHistory(
