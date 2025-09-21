@@ -306,7 +306,7 @@ public class ContainerRepository extends Repository {
                         resultSet.getInt(10)
                 ));
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             GriefLogger.LOGGER.error("Failed to get container history", e);
         }
         return containerHistory;
@@ -353,7 +353,7 @@ public class ContainerRepository extends Repository {
                         resultSet.getInt(10)
                 ));
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             GriefLogger.LOGGER.error("Failed to get container history", e);
         }
         return containerHistory;
@@ -438,8 +438,8 @@ public class ContainerRepository extends Repository {
                         resultSet.getInt(10)));
             }
             return blockHistory;
-        } catch (SQLException exception) {
-            GriefLogger.LOGGER.error("Failed to get block history from database", exception);
+        } catch (Exception exception) {
+            GriefLogger.LOGGER.error("Failed to get block history", exception);
             return List.of();
         }
     }

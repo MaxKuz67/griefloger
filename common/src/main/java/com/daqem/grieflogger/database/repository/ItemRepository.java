@@ -6,7 +6,6 @@ import com.daqem.grieflogger.database.Database;
 import com.daqem.grieflogger.model.SimpleItemStack;
 import com.daqem.grieflogger.model.action.ItemAction;
 import com.daqem.grieflogger.model.history.ItemHistory;
-import com.mojang.serialization.DataResult;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -280,8 +279,8 @@ public class ItemRepository extends Repository {
                         resultSet.getInt(10)));
             }
             return itemHistory;
-        } catch (SQLException exception) {
-            GriefLogger.LOGGER.error("Failed to get block history from database", exception);
+        } catch (Exception e) {
+            GriefLogger.LOGGER.error("Failed to get block history from database", e);
             return List.of();
         }
     }
